@@ -322,7 +322,8 @@ function EventCard({ event, onOpenModal }) {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95 }}
       transition={{ duration: 0.4 }}
-      className="group bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border border-slate-100 flex flex-col h-full"
+      className="group bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border border-slate-100 flex flex-col h-full cursor-pointer"
+      onClick={() => onOpenModal?.(event)} 
     >
       {/* Date Header Strip */}
       <div className={`${isUpcoming ? 'bg-emerald-600' : 'bg-blue-600'} px-6 py-3 flex justify-between items-center text-white`}>
@@ -330,12 +331,7 @@ function EventCard({ event, onOpenModal }) {
       </div>
 
       {/* Cover Image (Clickable) */}
-      <button
-        type="button"
-        className="relative h-48 overflow-hidden bg-slate-200 text-left shrink-0 block w-full"
-        onClick={() => onOpenModal?.(event)}
-        aria-label="View event details"
-      >
+      <div className="relative h-48 overflow-hidden bg-slate-200 text-left shrink-0">
         {coverImage ? (
           <img
             src={coverImage}
@@ -349,7 +345,7 @@ function EventCard({ event, onOpenModal }) {
           </div>
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-60" />
-      </button>
+      </div>
 
       <div className="p-6 flex flex-col flex-grow relative">
         {/* Date Box (Floating) */}
@@ -358,18 +354,16 @@ function EventCard({ event, onOpenModal }) {
           <span className="text-xl font-extrabold leading-none">{day}</span>
         </div>
 
-        <h3 className="text-xl font-bold text-slate-900 mb-3 pr-14 group-hover:text-blue-600 transition-colors">
+        <h3 className="text-xl font-bold text-slate-900 mb-6 pr-14 group-hover:text-blue-600 transition-colors flex-grow">
           {event.title}
         </h3>
-        
-        {/* Truncated description on the card to keep layout neat */}
-        <p className="text-slate-500 text-sm leading-relaxed mb-6 flex-grow line-clamp-3">
-          {event.description}
-        </p>
 
         {/* View Details Button (Clickable) */}
         <button
-          onClick={() => onOpenModal?.(event)}
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpenModal?.(event);
+          }}
           className="pt-4 border-t border-slate-50 flex items-center justify-between text-xs font-bold text-blue-600 mt-auto hover:text-blue-800 transition-colors w-full"
         >
           View Event Details
