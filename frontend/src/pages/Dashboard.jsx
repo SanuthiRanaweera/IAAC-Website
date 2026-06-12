@@ -470,13 +470,42 @@ function Dashboard() {
     setEventCreateStatus({ submitting: false, success: false, error: '' });
   };
 
-  // --- FILE TO BASE64 HELPER ---
+  // ===========================================================================
+  // --- FILE TO BASE64 HELPER (UPDATED WITH COMPRESSION) ---
+  // ===========================================================================
   const fileToBase64 = (file) =>
     new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = reject;
       reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target.result;
+        
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          // Set maximum width to 800px to keep file sizes tiny
+          const MAX_WIDTH = 800;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > MAX_WIDTH) {
+            height = Math.round((height * MAX_WIDTH) / width);
+            width = MAX_WIDTH;
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          // Compress as a JPEG with 70% quality 
+          // This turns a 5MB image into an ~80KB string!
+          resolve(canvas.toDataURL('image/jpeg', 0.7));
+        };
+        
+        img.onerror = reject;
+      };
+      reader.onerror = reject;
     });
 
   // --- IMAGE UPLOAD HANDLERS ---
@@ -490,7 +519,7 @@ function Dashboard() {
     const base64Arr = await Promise.all(validFiles.map(fileToBase64));
     setNewEventForm((p) => {
       const existing = p.galleryImages || [];
-      const combined = [...existing, ...base64Arr].slice(0, 15);
+      const combined = [...existing, ...base64Arr].slice(0, 30); 
       return { ...p, galleryImages: combined };
     });
   };
@@ -2057,7 +2086,7 @@ function Dashboard() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Upload Images <span className="text-slate-400 normal-case font-normal">(up to 15)</span></label>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Upload Images <span className="text-slate-400 normal-case font-normal">(up to 30)</span></label>
                 <input
                   type="file"
                   accept="image/*"
