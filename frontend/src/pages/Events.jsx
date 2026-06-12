@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Calendar as CalendarIcon, ChevronRight, ChevronLeft, Loader2 } from 'lucide-react';
+import { Calendar as CalendarIcon, ChevronRight, ChevronLeft, Loader2, X } from 'lucide-react';
 import SEO from '../components/SEO.jsx';
 import apiClient from '../services/apiClient.js';
 
@@ -8,7 +8,8 @@ const Events = () => {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [previewImages, setPreviewImages] = useState([]);
+  
+  const [selectedEvent, setSelectedEvent] = useState(null);
   const [previewIndex, setPreviewIndex] = useState(0);
   
   const [currentDate, setCurrentDate] = useState(new Date()); 
@@ -47,39 +48,40 @@ const Events = () => {
     return () => { isMounted = false; };
   }, []);
 
+  // Handle Escape key to close modal
   useEffect(() => {
-    if (!previewImages.length) return;
+    if (!selectedEvent) return;
     const onKeyDown = (e) => {
-      if (e.key === 'Escape') {
-        setPreviewImages([]);
-        setPreviewIndex(0);
-      }
+      if (e.key === 'Escape') closeModal();
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [previewImages.length]);
+  }, [selectedEvent]);
 
-  const closePreview = () => {
-    setPreviewImages([]);
+  const closeModal = () => {
+    setSelectedEvent(null);
     setPreviewIndex(0);
   };
 
-  // --- CALENDAR LOGIC ---
-  const monthName = currentDate.toLocaleString('default', { month: 'long' });
+  // --- CALENDAR LOGIC (Yearly Navigation) ---
   const year = currentDate.getFullYear();
+  const prevYear = () => setCurrentDate(new Date(year - 1, 0, 1));
+  const nextYear = () => setCurrentDate(new Date(year + 1, 0, 1));
 
-  const prevMonth = () => setCurrentDate(new Date(year, currentDate.getMonth() - 1, 1));
-  const nextMonth = () => setCurrentDate(new Date(year, currentDate.getMonth() + 1, 1));
-
-  // Events for the CURRENTLY SELECTED MONTH
-  const monthEvents = events
+  // Events for the CURRENTLY SELECTED YEAR
+  const yearEvents = events
     .filter((event) => {
       if (!event.date) return false;
-      return event.date.getMonth() === currentDate.getMonth() && event.date.getFullYear() === currentDate.getFullYear();
+      return event.date.getFullYear() === year;
     })
     .sort((a, b) => a.date - b.date);
 
-  // Categories removed: render a single list for the month.
+  // Extract images for the currently selected event
+  let modalImages = [];
+  if (selectedEvent) {
+    const candidates = [selectedEvent.imageUrl, ...(Array.isArray(selectedEvent.imageUrls) ? selectedEvent.imageUrls : [])].filter(Boolean);
+    modalImages = Array.from(new Set(candidates));
+  }
 
   if (loading) return <div className="h-screen flex items-center justify-center bg-slate-50"><Loader2 className="w-10 h-10 text-blue-600 animate-spin" /></div>;
 
@@ -92,77 +94,120 @@ const Events = () => {
         keywords="IAAC events, aviation workshops, airline seminars, aviation college events Sri Lanka"
       />
 
+      {/* --- SPLIT-PANEL EVENT MODAL (Shows Full Details & Images) --- */}
       <AnimatePresence>
-        {previewImages.length ? (
+        {selectedEvent && (
           <motion.div
-            key="image-preview"
+            key="event-modal"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black/70 p-4 flex items-center justify-center"
-            role="dialog"
-            aria-modal="true"
-            onClick={closePreview}
+            className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm p-2 sm:p-6 md:p-12 flex items-center justify-center"
+            onClick={closeModal}
           >
             <motion.div
-              initial={{ scale: 0.98, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.98, opacity: 0 }}
-              transition={{ duration: 0.15 }}
-              className="bg-white rounded-2xl overflow-hidden shadow-xl max-w-5xl w-full"
-              onClick={(e) => e.stopPropagation()}
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              className="bg-white rounded-2xl sm:rounded-3xl overflow-hidden shadow-2xl max-w-7xl w-full flex flex-col md:flex-row h-[90vh] md:h-[80vh]"
+              onClick={(e) => e.stopPropagation()} 
             >
-              <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
-                <div className="text-sm font-bold text-slate-700">Preview</div>
-                <button
-                  type="button"
-                  className="text-sm font-bold text-slate-600 hover:text-slate-900"
-                  onClick={closePreview}
-                >
-                  Close
-                </button>
-              </div>
-              <div className="bg-slate-900">
-                <img
-                  src={previewImages[Math.min(previewIndex, previewImages.length - 1)]}
-                  alt="Event preview"
-                  className="w-full max-h-[80vh] object-contain"
-                />
-              </div>
+              
+              {/* LEFT SIDE: Image Viewer */}
+              <div className="bg-black w-full md:w-3/5 lg:w-2/3 h-[45vh] md:h-full flex flex-col shrink-0">
+                <div className="flex-1 relative flex items-center justify-center p-2 sm:p-6 min-h-0 group overflow-hidden">
+                  {modalImages.length > 0 ? (
+                    <>
+                      <img
+                        src={modalImages[Math.min(previewIndex, modalImages.length - 1)]}
+                        alt={selectedEvent.title}
+                        className="max-w-full max-h-full object-contain drop-shadow-2xl rounded-lg"
+                      />
+                      
+                      {modalImages.length > 1 && (
+                        <>
+                          <button 
+                            onClick={() => setPreviewIndex(prev => (prev === 0 ? modalImages.length - 1 : prev - 1))}
+                            className="absolute left-4 p-2 sm:p-3 bg-white/10 hover:bg-white/20 backdrop-blur-md text-white rounded-full transition-all opacity-0 group-hover:opacity-100"
+                          >
+                            <ChevronLeft size={24} />
+                          </button>
+                          <button 
+                            onClick={() => setPreviewIndex(prev => (prev === modalImages.length - 1 ? 0 : prev + 1))}
+                            className="absolute right-4 p-2 sm:p-3 bg-white/10 hover:bg-white/20 backdrop-blur-md text-white rounded-full transition-all opacity-0 group-hover:opacity-100"
+                          >
+                            <ChevronRight size={24} />
+                          </button>
+                        </>
+                      )}
+                    </>
+                  ) : (
+                    <div className="text-slate-500 flex flex-col items-center">
+                      <CalendarIcon size={48} className="mb-2 opacity-50" />
+                      <p>No images available</p>
+                    </div>
+                  )}
+                </div>
 
-              {previewImages.length > 1 && (
-                <div className="px-4 py-3 border-t border-slate-100 bg-white">
-                  <div className="flex gap-2 overflow-x-auto">
-                    {previewImages.map((url, idx) => (
+                {modalImages.length > 1 && (
+                  <div className="h-20 sm:h-24 bg-slate-950 p-2 sm:p-4 flex gap-2 overflow-x-auto shrink-0 scrollbar-hide">
+                    {modalImages.map((url, idx) => (
                       <button
-                        key={`${url}-${idx}`}
-                        type="button"
+                        key={idx}
                         onClick={() => setPreviewIndex(idx)}
-                        className={`shrink-0 rounded-lg overflow-hidden border ${
-                          idx === previewIndex ? 'border-blue-500' : 'border-slate-200'
+                        className={`shrink-0 w-16 sm:w-20 h-full rounded-md overflow-hidden transition-all duration-200 ${
+                          idx === previewIndex ? 'border-2 border-blue-500 opacity-100 scale-105' : 'opacity-40 hover:opacity-100'
                         }`}
-                        aria-label={`Preview image ${idx + 1}`}
                       >
-                        <img
-                          src={url}
-                          alt=""
-                          className="w-16 h-16 object-cover"
-                          loading="lazy"
-                        />
+                        <img src={url} alt={`Thumbnail ${idx}`} className="w-full h-full object-cover" />
                       </button>
                     ))}
                   </div>
+                )}
+              </div>
+
+              {/* RIGHT SIDE: Scrollable Full Information Panel */}
+              <div className="bg-white w-full md:w-2/5 lg:w-1/3 flex flex-col flex-1 border-l border-slate-100 min-h-0">
+                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Event Details</span>
+                  <button
+                    onClick={closeModal}
+                    className="p-2 bg-slate-50 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-full transition-colors"
+                  >
+                    <X size={20} />
+                  </button>
                 </div>
-              )}
+
+                <div className="p-6 overflow-y-auto flex-1">
+                  <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 mb-4 leading-tight">
+                    {selectedEvent.title}
+                  </h2>
+                  
+                  <div className="flex items-center gap-2.5 text-sm font-bold text-blue-700 bg-blue-50 w-fit px-4 py-2 rounded-xl mb-6 border border-blue-100">
+                    <CalendarIcon size={18} />
+                    {new Date(selectedEvent.date).toLocaleDateString(undefined, { 
+                      weekday: 'long', 
+                      year: 'numeric', 
+                      month: 'long', 
+                      day: 'numeric' 
+                    })}
+                  </div>
+                  
+                  {/* Full description shown here */}
+                  <div className="text-slate-600 text-[15px] leading-relaxed whitespace-pre-wrap break-words pb-8">
+                    {selectedEvent.description ? selectedEvent.description : <span className="italic text-slate-400">No description provided for this event.</span>}
+                  </div>
+                </div>
+              </div>
+
             </motion.div>
           </motion.div>
-        ) : null}
+        )}
       </AnimatePresence>
       
-      {/* --- HERO SECTION (Updated to Dark Navy Brand Style) --- */}
+      {/* --- HERO SECTION --- */}
       <section className="relative pt-32 md:pt-[160px] pb-24 bg-[#0f172a] overflow-hidden text-center px-6">
-        
-        {/* Background Glow Effects */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full max-w-7xl pointer-events-none">
            <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-600/20 rounded-full blur-3xl opacity-50"></div>
            <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl opacity-30"></div>
@@ -188,16 +233,24 @@ const Events = () => {
         </div>
       </section>
 
-      <div className="container mx-auto px-6 -mt-10 relative z-20">
+      {/* Main Container */}
+      <div className="container mx-auto px-6 relative z-20">
         
-        {/* --- TOOLBAR (Month Nav) --- */}
-        <div className="bg-white rounded-2xl shadow-xl border border-slate-100 p-4 mb-10 flex flex-col md:flex-row items-center justify-between gap-4">
-          
-          {/* Month Navigation */}
-          <div className="flex items-center gap-6 bg-slate-50 rounded-xl px-4 py-2 border border-slate-200">
-            <button onClick={prevMonth} className="p-2 hover:bg-white hover:shadow-sm rounded-full transition-all text-slate-600"><ChevronLeft className="w-5 h-5" /></button>
-            <h2 className="text-lg font-bold text-slate-800 min-w-[140px] text-center">{monthName} {year}</h2>
-            <button onClick={nextMonth} className="p-2 hover:bg-white hover:shadow-sm rounded-full transition-all text-slate-600"><ChevronRight className="w-5 h-5" /></button>
+        {/* --- FLOATING YEAR NAV --- */}
+        <div className="flex justify-center -mt-12 mb-12">
+          <div className="flex items-center gap-2 sm:gap-4 bg-white p-2 rounded-full shadow-xl shadow-slate-200/50 border border-slate-100">
+            <button onClick={prevYear} className="p-3 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors">
+              <ChevronLeft size={20} />
+            </button>
+            <div className="flex flex-col items-center justify-center min-w-[130px] sm:min-w-[160px]">
+              <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mb-1">Timeline</span>
+              <span className="text-lg sm:text-xl font-extrabold text-slate-800 leading-none">
+                {year}
+              </span>
+            </div>
+            <button onClick={nextYear} className="p-3 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors">
+              <ChevronRight size={20} />
+            </button>
           </div>
         </div>
 
@@ -210,15 +263,15 @@ const Events = () => {
           )}
 
           <AnimatePresence mode='popLayout'>
-            {monthEvents.length > 0 ? (
+            {yearEvents.length > 0 ? (
               <motion.div layout className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {monthEvents.map((event) => (
+                {yearEvents.map((event) => (
                   <EventCard
                     key={event._id}
                     event={event}
-                    onPreviewImages={(urls, startIndex = 0) => {
-                      setPreviewImages(urls);
-                      setPreviewIndex(startIndex);
+                    onOpenModal={(clickedEvent) => {
+                      setSelectedEvent(clickedEvent);
+                      setPreviewIndex(0);
                     }}
                   />
                 ))}
@@ -234,7 +287,7 @@ const Events = () => {
                   <CalendarIcon className="w-8 h-8 text-slate-300" />
                 </div>
                 <h3 className="text-xl font-bold text-slate-700">No events scheduled</h3>
-                <p className="text-slate-500 mt-2">There are no events listed for {monthName} {year}.</p>
+                <p className="text-slate-500 mt-2">There are no events listed for {year}.</p>
               </motion.div>
             )}
           </AnimatePresence>
@@ -246,7 +299,7 @@ const Events = () => {
 };
 
 // --- SINGLE EVENT CARD (Gallery Style) ---
-function EventCard({ event, onPreviewImages }) {
+function EventCard({ event, onOpenModal }) {
   const dateObj = event.date;
   if (!dateObj) return null;
 
@@ -276,15 +329,12 @@ function EventCard({ event, onPreviewImages }) {
         <span className="text-xs font-bold uppercase tracking-wider">{weekday}</span>
       </div>
 
-      {/* Cover Image */}
+      {/* Cover Image (Clickable) */}
       <button
         type="button"
-        className="relative h-48 overflow-hidden bg-slate-200 text-left"
-        onClick={() => {
-          if (!coverImage) return;
-          onPreviewImages?.(images, 0);
-        }}
-        aria-label={coverImage ? 'Preview event image' : 'No image available'}
+        className="relative h-48 overflow-hidden bg-slate-200 text-left shrink-0 block w-full"
+        onClick={() => onOpenModal?.(event)}
+        aria-label="View event details"
       >
         {coverImage ? (
           <img
@@ -312,12 +362,21 @@ function EventCard({ event, onPreviewImages }) {
           {event.title}
         </h3>
         
-        <p className="text-slate-500 text-sm leading-relaxed mb-6 line-clamp-3 flex-grow">
+        {/* Truncated description on the card to keep layout neat */}
+        <p className="text-slate-500 text-sm leading-relaxed mb-6 flex-grow line-clamp-3">
           {event.description}
         </p>
 
-        {/* Details Footer */}
-        <div className="pt-4 border-t border-slate-50" />
+        {/* View Details Button (Clickable) */}
+        <button
+          onClick={() => onOpenModal?.(event)}
+          className="pt-4 border-t border-slate-50 flex items-center justify-between text-xs font-bold text-blue-600 mt-auto hover:text-blue-800 transition-colors w-full"
+        >
+          View Event Details
+          <div className="bg-blue-50 group-hover:bg-blue-100 p-1.5 rounded-full transition-colors">
+            <ChevronRight size={14} />
+          </div>
+        </button>
       </div>
     </motion.div>
   );
