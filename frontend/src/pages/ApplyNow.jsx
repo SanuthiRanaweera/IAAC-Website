@@ -498,9 +498,9 @@ function ApplyNow() {
                       <Label text="Select Academy / Campus" required />
                       <select value={form.academy} onChange={update('academy')} className={`input-field ${errors.academy ? 'input-error' : ''}`}>
                         <option value="">Select</option>
-                        <option value="IAAC City Academy">IAAC City Academy</option>
-                        <option value="IAAC Airport Academy">IAAC Airport Academy</option>
-                        <option value="IAAC Central Academy">IAAC Central Academy</option>
+                        <option value="IAAC City Academy">IAAC City Academy - Colombo 10</option>
+                        <option value="IAAC Airport Academy">IAAC Airport Academy - Rathmalana Airport</option>
+                        <option value="IAAC Central Academy">IAAC Central Academy - Kurunegala</option>
                       </select>
                       {errors.academy && <FieldError msg={errors.academy} />}
                     </div>
@@ -530,7 +530,7 @@ function ApplyNow() {
                       <option value="C001">Rochini</option>
                       <option value="C002">Dimath</option>
                       <option value="C003">Abhishek</option>
-                      <option value="C004">Vishwani</option>
+                      <option value="C004">Jiwaka</option>
                       <option value="C005">Michelle</option>
                     </select>
                     <p className="text-xs text-slate-500 mt-2">
