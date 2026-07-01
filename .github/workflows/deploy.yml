@@ -28,7 +28,12 @@ jobs:
       - name: Add VPS to known hosts
         run: |
           mkdir -p ~/.ssh
-          ssh-keyscan -H ${{ env.VPS_HOST }} >> ~/.ssh/known_hosts
+          chmod 700 ~/.ssh
+          touch ~/.ssh/known_hosts
+          ssh-keyscan -T 10 -H ${{ env.VPS_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
+          echo "Host ${{ env.VPS_HOST }}" >> ~/.ssh/config
+          echo "  StrictHostKeyChecking accept-new" >> ~/.ssh/config
+          chmod 600 ~/.ssh/known_hosts ~/.ssh/config
 
       - name: Deploy to VPS
         run: |
