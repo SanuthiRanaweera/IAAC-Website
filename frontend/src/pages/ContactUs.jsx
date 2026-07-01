@@ -8,7 +8,7 @@ import apiClient from '../services/apiClient.js';
 const BRANCHES = [
   {
     id: 'city',
-    name: 'IAAC City Campus (Head Office)',
+    name: 'IAAC City Academy (Head Office)',
     icon: <Building2 size={20} />,
     address: '49A Siri Dhamma Mawatha, Colombo 01000',
     hotline: '076 676 3777',
@@ -16,7 +16,7 @@ const BRANCHES = [
   },
   {
     id: 'airport',
-    name: 'Airport Academy',
+    name: 'IAAC Airport Academy (Ratmalana)',
     icon: <Plane size={20} />,
     address: 'Ratmalana International Airport, Colombo',
     hotline: '076 678 2781', // Update if specific number exists
@@ -24,9 +24,9 @@ const BRANCHES = [
   },
   {
     id: 'kurunegala',
-    name: 'Kurunegala Center',
+    name: 'IAAC Central Academy (Kurunegala)',
     icon: <MapPin size={20} />,
-    address: 'No. 27, Mihindu Mawatha, Kurunegala',
+    address: 'The traveller global  (Pvt)Ltd, No.100, Colombo Road, Kurunegala',
     hotline: '077 558 7888', // Update if specific number exists
     mapLink: 'https://maps.app.goo.gl/TS9KEPvNWdwwBxzW7'
   }
