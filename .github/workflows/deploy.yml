@@ -50,6 +50,30 @@ jobs:
 
             echo "📄 Using compose file: $COMPOSE_FILE"
             docker compose -f "$COMPOSE_FILE" config -q
+
+            echo "🧹 Stopping previous compose stacks..."
+            docker compose -f docker-compose.prod.yml down --remove-orphans || true
+            docker compose -f docker-compose.yml down --remove-orphans || true
+
+            echo "🔎 Releasing host ports 80/443 (if occupied by old containers)..."
+            CONTAINERS_ON_WEB_PORTS=$(docker ps --format '{{.ID}} {{.Names}} {{.Ports}}' | grep -E '(^| )0\.0\.0\.0:(80|443)->|:::80->|:::443->' | awk '{print $1}' || true)
+            if [ -n "$CONTAINERS_ON_WEB_PORTS" ]; then
+              echo "$CONTAINERS_ON_WEB_PORTS" | xargs -r docker stop
+            fi
+
+            echo "🔎 Stopping host web servers if they are using 80/443..."
+            for svc in nginx apache2 caddy; do
+              if command -v systemctl >/dev/null 2>&1 && systemctl is-active --quiet "$svc"; then
+                echo "Stopping service: $svc"
+                systemctl stop "$svc" || true
+              fi
+            done
+
+            if ss -ltn '( sport = :80 or sport = :443 )' | grep -E ':80|:443' >/dev/null 2>&1; then
+              echo "❌ Ports 80/443 are still in use. Active listeners:"
+              ss -ltnp '( sport = :80 or sport = :443 )' || true
+              exit 1
+            fi
             
             echo "🔨 Building Docker containers..."
             docker compose -f "$COMPOSE_FILE" build --no-cache
