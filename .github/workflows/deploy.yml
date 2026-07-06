@@ -40,12 +40,23 @@ jobs:
             
             echo "⬇️ Pulling latest changes..."
             git pull origin main
+
+            COMPOSE_FILE="docker-compose.prod.yml"
+            CERT_DIR="/etc/letsencrypt/live/iaacasia.com"
+            if [ ! -f "$CERT_DIR/fullchain.pem" ] || [ ! -f "$CERT_DIR/privkey.pem" ]; then
+              echo "⚠️ SSL certificates not found. Falling back to HTTP deployment."
+              COMPOSE_FILE="docker-compose.yml"
+            fi
+
+            echo "📄 Using compose file: $COMPOSE_FILE"
+            docker compose -f "$COMPOSE_FILE" config -q
             
             echo "🔨 Building Docker containers..."
-            docker compose -f docker-compose.prod.yml build --no-cache
+            docker compose -f "$COMPOSE_FILE" build --no-cache
             
             echo "🚀 Starting containers..."
-            docker compose -f docker-compose.prod.yml up -d
+            docker compose -f "$COMPOSE_FILE" up -d --remove-orphans
+            docker compose -f "$COMPOSE_FILE" ps
             
             echo "🧹 Cleaning up old images..."
             docker image prune -f
@@ -56,4 +67,4 @@ jobs:
       - name: Health check
         run: |
           sleep 30
-          curl -f https://iaacasia.com/api/health || echo "⚠️ Health check failed, but deployment may still be in progress"
+          curl -fsS https://iaacasia.com/api/health || curl -fsS http://iaacasia.com/api/health
