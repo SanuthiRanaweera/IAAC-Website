@@ -146,7 +146,7 @@ exports.approveApplication = async (req, res) => {
     await app.save();
 
     // Fire-and-forget: send approval email in the background (don't block HTTP response)
-    sendApprovalEmail(app)
+    sendApprovalEmail(app, req.body.applicationPdf)
       .then((result) => {
         if (result.sent) {
           console.log(`[approve] Congratulations email sent to ${app.email}`);
