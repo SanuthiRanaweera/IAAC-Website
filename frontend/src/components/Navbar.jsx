@@ -56,7 +56,9 @@ function Navbar() {
           {/* DESKTOP ACTION BUTTONS */}
           <div className="hidden lg:flex items-center gap-3">
             <a
-              href="https://portal.iaacasialms.com/index"
+              href="https://iaaccampus.com/login"
+              target="_blank"
+              rel="noopener noreferrer"
               className="px-4 py-2 border border-blue-600 text-blue-600 text-sm font-bold rounded-full hover:bg-blue-50 transition"
             >
               LMS Login
@@ -127,7 +129,9 @@ function Navbar() {
             {/* MOBILE BUTTONS */}
             <div className="pt-4 space-y-3">
               <a
-                href="https://portal.iaacasialms.com/index"
+                href="https://iaaccampus.com/login"
+                target="_blank"
+                rel="noopener noreferrer"
                 onClick={() => {
                   setIsMobileMenuOpen(false);
                   setActiveDropdown(null);

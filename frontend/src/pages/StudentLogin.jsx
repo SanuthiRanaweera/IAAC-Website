@@ -21,9 +21,21 @@ function StudentLogin() {
     >
       <div className="container mx-auto px-6 max-w-md">
         <h1 className="text-3xl font-bold text-slate-900 mb-2">Student Login</h1>
-        <p className="text-slate-600 mb-8">
-          Log in to access your student portal. This is a visual placeholder; backend integration can be added later.
+        <p className="text-slate-600 mb-6">
+          Log in to access your student portal.
         </p>
+
+        <div className="mb-6 p-4 rounded-xl bg-blue-50 border border-blue-200 text-sm text-blue-900 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <span className="text-center sm:text-left">Access the official IAAC Campus LMS</span>
+          <a
+            href="https://iaaccampus.com/login"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-xs shrink-0 transition"
+          >
+            Go to LMS Login →
+          </a>
+        </div>
 
         <form className="bg-white rounded-2xl shadow-lg border border-slate-100 p-6 space-y-4" onSubmit={submit}>
           <div>

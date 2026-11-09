@@ -8,18 +8,18 @@ import apiClient from '../services/apiClient.js';
 const BRANCHES = [
   {
     id: 'city',
-    name: 'IAAC City Academy (Head Office)',
+    name: 'IAAC City Academy ',
     icon: <Building2 size={20} />,
     address: '49A Siri Dhamma Mawatha, Colombo 01000',
-    hotline: '076 676 3777',
+    hotline: '077 226 8160',
     mapLink: 'https://maps.google.com/?q=IAAC+City+Campus+Colombo'
   },
   {
     id: 'airport',
-    name: 'IAAC Airport Academy (Ratmalana)',
+    name: 'IAAC Airport Academy (Head Office)',
     icon: <Plane size={20} />,
     address: 'Ratmalana International Airport, Colombo',
-    hotline: '076 678 2781', // Update if specific number exists
+    hotline: '076 278 2781', // Update if specific number exists
     mapLink: 'https://maps.google.com/?q=Ratmalana+Airport'
   },
   {
@@ -29,6 +29,14 @@ const BRANCHES = [
     address: 'The traveller global  (Pvt)Ltd, No.100, Colombo Road, Kurunegala',
     hotline: '077 558 7888', // Update if specific number exists
     mapLink: 'https://maps.app.goo.gl/TS9KEPvNWdwwBxzW7'
+  },
+  {
+    id: 'IAAC Global Aviation Centre',
+    name: 'IAAC Global Aviation Centre',
+    icon: <MapPin size={20} />,
+    address: '261 Ven Baddegama Wimalawansa Mawatha, Deans Road, Colombo 10',
+    hotline: '076 278 2781', // Update if specific number exists
+    mapLink: 'https://www.google.com/maps/dir//IAAC+Global+Aviation+Centre,+261+Ven+Baddegama+Wimalawansa+Mawatha,+Deans+Road,+01000/@6.9331392,79.8621696,15z/data=!4m8!4m7!1m0!1m5!1m1!1s0x3ae259236f63b4e7:0x2f1b25e8627d7852!2m2!1d79.8648029!2d6.9225738?entry=ttu&g_ep=EgoyMDI2MTEwMy4wIKXMDSoASAFQAw%3D%3D'
   }
 ];
 
