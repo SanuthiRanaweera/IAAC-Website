@@ -22,7 +22,8 @@ export default function DashboardOverview({
   // 1. Live KPI metrics computed directly from real MongoDB state
   const totalApps = applications.length;
   const approvedApps = applications.filter((a) => a.isDone === true || a.status === 'approved').length;
-  const pendingApps = applications.filter((a) => !a.isDone && a.status !== 'rejected').length;
+  const reviewedApps = applications.filter((a) => !a.isDone && (a.reviewStatus === 'reviewed' || a.status === 'reviewed')).length;
+  const pendingApps = applications.filter((a) => !a.isDone && a.reviewStatus !== 'reviewed' && a.status !== 'reviewed' && a.status !== 'rejected').length;
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -43,6 +44,7 @@ export default function DashboardOverview({
 
   const approvalRateNum = totalApps > 0 ? (approvedApps / totalApps) * 100 : 0;
   const pendingRateNum = totalApps > 0 ? (pendingApps / totalApps) * 100 : 0;
+  const reviewedRateNum = totalApps > 0 ? (reviewedApps / totalApps) * 100 : 0;
 
   // 2. Compute dynamic chart data based on selected period
   const chartData = useMemo(() => {
@@ -396,6 +398,12 @@ export default function DashboardOverview({
                   strokeDashoffset={`-${(approvalRateNum * 238.7) / 100}`}
                   strokeLinecap="round"
                 />
+                <circle
+                  cx="50" cy="50" r="38" fill="transparent" stroke="#94A3B8" strokeWidth="12"
+                  strokeDasharray={`${(reviewedRateNum * 238.7) / 100} 238.7`}
+                  strokeDashoffset={`-${((approvalRateNum + pendingRateNum) * 238.7) / 100}`}
+                  strokeLinecap="round"
+                />
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
                 <span className="text-2xl font-black text-slate-900">{totalApps}</span>
@@ -422,6 +430,15 @@ export default function DashboardOverview({
                 </div>
                 <span className="font-bold text-amber-800">
                   {pendingApps} ({formatPct(pendingApps, totalApps)})
+                </span>
+              </div>
+              <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-100/80 border border-slate-200">
+                <div className="flex items-center gap-2">
+                  <div className="w-2.5 h-2.5 rounded-full bg-slate-400" />
+                  <span className="font-semibold text-slate-700">Reviewed (Not Eligible)</span>
+                </div>
+                <span className="font-bold text-slate-700">
+                  {reviewedApps} ({formatPct(reviewedApps, totalApps)})
                 </span>
               </div>
             </div>
@@ -514,10 +531,16 @@ export default function DashboardOverview({
                             className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                               isDone
                                 ? 'bg-emerald-100 text-emerald-800'
+                                : app.reviewStatus === 'reviewed' || app.status === 'reviewed'
+                                ? 'bg-slate-200 text-slate-700'
                                 : 'bg-amber-100 text-amber-800'
                             }`}
                           >
-                            {isDone ? 'Approved' : 'Pending'}
+                            {isDone
+                              ? 'Approved'
+                              : app.reviewStatus === 'reviewed' || app.status === 'reviewed'
+                              ? 'Reviewed'
+                              : 'Pending'}
                           </span>
                         </td>
                         <td className="py-3 pr-1 text-right">

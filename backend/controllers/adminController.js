@@ -73,8 +73,14 @@ exports.applications = async (req, res) => {
       academy: a.academy,
       referral: a.referral,
 
-      // admin state
+      // admin review & approval state
       isDone: !!a.isDone,
+      status: a.isDone ? 'approved' : (a.reviewStatus === 'reviewed' ? 'reviewed' : 'pending'),
+      reviewStatus: a.reviewStatus || (a.isDone ? 'approved' : 'pending'),
+      reviewedAt: a.reviewedAt || null,
+      reviewedBy: a.reviewedBy || null,
+      reviewReason: a.reviewReason || '',
+      reviewRemarks: a.reviewRemarks || '',
     }));
     return res.status(200).json({ items: mapped });
   } catch (err) {
@@ -91,9 +97,15 @@ exports.markApplicationDone = async (req, res) => {
       return res.status(404).json({ message: 'Application not found' });
     }
 
+    const nextDone = !existing.isDone;
     const updated = await Application.findByIdAndUpdate(
       req.params.id,
-      { $set: { isDone: !existing.isDone } },
+      {
+        $set: {
+          isDone: nextDone,
+          reviewStatus: nextDone ? 'approved' : 'pending',
+        },
+      },
       { new: true }
     ).lean();
 
@@ -101,9 +113,74 @@ exports.markApplicationDone = async (req, res) => {
       return res.status(404).json({ message: 'Application not found' });
     }
 
-    return res.status(200).json({ id: updated._id, isDone: !!updated.isDone });
+    return res.status(200).json({
+      id: updated._id,
+      isDone: !!updated.isDone,
+      reviewStatus: updated.reviewStatus,
+      status: updated.isDone ? 'approved' : (updated.reviewStatus === 'reviewed' ? 'reviewed' : 'pending'),
+    });
   } catch (err) {
     return res.status(500).json({ message: 'Failed to update application' });
+  }
+};
+
+// --- DEDICATED REVIEW ACTION (NO EMAIL, NO ENROLLMENT) ---
+exports.reviewApplication = async (req, res) => {
+  try {
+    const Application = require('../models/Application');
+    const { id } = req.params;
+    const { reviewReason, reviewRemarks, reopen, status } = req.body || {};
+
+    const app = await Application.findById(id);
+    if (!app) {
+      return res.status(404).json({ message: 'Application not found' });
+    }
+
+    // Reopen decision back to pending review
+    if (reopen === true || status === 'pending') {
+      app.isDone = false;
+      app.reviewStatus = 'pending';
+      if (reviewRemarks !== undefined) app.reviewRemarks = String(reviewRemarks).trim();
+      await app.save();
+
+      return res.status(200).json({
+        id: app._id,
+        isDone: false,
+        status: 'pending',
+        reviewStatus: 'pending',
+        reviewedAt: app.reviewedAt,
+        reviewedBy: app.reviewedBy,
+        reviewReason: app.reviewReason,
+        reviewRemarks: app.reviewRemarks,
+        message: 'Application reopened for pending review',
+      });
+    }
+
+    // Mark as Checked / Reviewed (Does Not Meet Requirements)
+    // IMPORTANT: Never approve, never send email, never enroll!
+    app.isDone = false;
+    app.reviewStatus = 'reviewed';
+    app.reviewedAt = new Date();
+    app.reviewedBy = req.user?.email || req.user?.name || req.user?.sub || 'Admin';
+    if (reviewReason) app.reviewReason = String(reviewReason).trim();
+    if (reviewRemarks !== undefined) app.reviewRemarks = String(reviewRemarks).trim();
+
+    await app.save();
+
+    return res.status(200).json({
+      id: app._id,
+      isDone: false,
+      status: 'reviewed',
+      reviewStatus: 'reviewed',
+      reviewedAt: app.reviewedAt,
+      reviewedBy: app.reviewedBy,
+      reviewReason: app.reviewReason,
+      reviewRemarks: app.reviewRemarks,
+      message: 'Application marked as reviewed. No approval email was sent.',
+    });
+  } catch (err) {
+    console.error('Review application error:', err);
+    return res.status(500).json({ message: 'Failed to record application review' });
   }
 };
 
@@ -143,6 +220,7 @@ exports.approveApplication = async (req, res) => {
 
     // Mark as done/approved
     app.isDone = true;
+    app.reviewStatus = 'approved';
     await app.save();
 
     // Fire-and-forget: send approval email in the background (don't block HTTP response)
@@ -286,7 +364,14 @@ exports.stats = async (req, res) => {
 
     const totalApplications = await Application.countDocuments();
     const approvedApplications = await Application.countDocuments({ isDone: true });
-    const pendingApplications = await Application.countDocuments({ isDone: false });
+    const reviewedApplications = await Application.countDocuments({
+      isDone: false,
+      reviewStatus: 'reviewed',
+    });
+    const pendingApplications = await Application.countDocuments({
+      isDone: false,
+      reviewStatus: { $ne: 'reviewed' },
+    });
 
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
@@ -309,6 +394,7 @@ exports.stats = async (req, res) => {
     return res.status(200).json({
       totalApplications,
       approvedApplications,
+      reviewedApplications,
       pendingApplications,
       newApplicationsToday,
       unreadMessages,

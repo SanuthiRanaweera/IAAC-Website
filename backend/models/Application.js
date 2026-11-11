@@ -27,8 +27,17 @@ const ApplicationSchema = new mongoose.Schema(
     academy: { type: String, required: true },
     referral: { type: String, required: false },
 
-    // Admin processing
+    // Admin processing & review workflow
     isDone: { type: Boolean, default: false },
+    reviewStatus: {
+      type: String,
+      enum: ['pending', 'reviewed', 'approved', 'rejected'],
+      default: 'pending',
+    },
+    reviewedAt: { type: Date },
+    reviewedBy: { type: mongoose.Schema.Types.Mixed },
+    reviewReason: { type: String },
+    reviewRemarks: { type: String },
   },
   { timestamps: true }
 );

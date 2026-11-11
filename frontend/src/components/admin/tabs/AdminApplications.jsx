@@ -12,6 +12,8 @@ export default function AdminApplications({
   selectedApplicationId,
   setSelectedApplicationId,
   onApproveApplication,
+  onReviewApplication,
+  onReopenApplication,
   onToggleApplicationDone,
   onDeleteApplication,
   onDownloadApplicationPdf,
@@ -20,7 +22,7 @@ export default function AdminApplications({
 }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [courseFilter, setCourseFilter] = useState('all');
-  const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'pending', 'approved'
+  const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'pending', 'reviewed', 'approved'
   const [yearFilter, setYearFilter] = useState('all');
   const [monthFilter, setMonthFilter] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
@@ -29,6 +31,12 @@ export default function AdminApplications({
   // Confirm Approve Modal state
   const [confirmApproveApp, setConfirmApproveApp] = useState(null);
   const [approving, setApproving] = useState(false);
+
+  // Confirm Review Modal state ("Mark as Checked")
+  const [confirmReviewApp, setConfirmReviewApp] = useState(null);
+  const [reviewReason, setReviewReason] = useState('Minimum qualifications not met');
+  const [reviewRemarks, setReviewRemarks] = useState('');
+  const [reviewing, setReviewing] = useState(false);
 
   // Confirm Delete Modal state
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
@@ -88,8 +96,16 @@ export default function AdminApplications({
       }
 
       // Status filter
-      if (statusFilter === 'pending' && app.isDone) return false;
-      if (statusFilter === 'approved' && !app.isDone) return false;
+      const isAppDone = Boolean(app.isDone || app.status === 'approved');
+      const isAppReviewed = Boolean(!app.isDone && (app.reviewStatus === 'reviewed' || app.status === 'reviewed'));
+
+      if (statusFilter === 'pending') {
+        if (isAppDone || isAppReviewed) return false;
+      } else if (statusFilter === 'reviewed') {
+        if (!isAppReviewed) return false;
+      } else if (statusFilter === 'approved') {
+        if (!isAppDone) return false;
+      }
 
       // Date filters
       if (app.createdAt) {
@@ -131,8 +147,29 @@ export default function AdminApplications({
     }
   };
 
+  // Handle Review Confirm ("Mark as Checked")
+  const handleConfirmReview = async () => {
+    if (!confirmReviewApp) return;
+    setReviewing(true);
+    try {
+      if (onReviewApplication) {
+        await onReviewApplication(confirmReviewApp.id, {
+          reviewReason,
+          reviewRemarks,
+        });
+      }
+      setConfirmReviewApp(null);
+      setReviewReason('Minimum qualifications not met');
+      setReviewRemarks('');
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setReviewing(false);
+    }
+  };
+
   // Helper for status badge
-  const renderStatusBadge = (isApproved, isRejected = false) => {
+  const renderStatusBadge = (isApproved, isReviewed, isRejected = false) => {
     if (isRejected) {
       return (
         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-800 border border-rose-200 shrink-0">
@@ -147,6 +184,19 @@ export default function AdminApplications({
           <Check size={12} className="text-emerald-700 stroke-[2.5]" />
           <span>✓ Approved</span>
         </span>
+      );
+    }
+    if (isReviewed) {
+      return (
+        <div className="flex flex-col items-end gap-1 shrink-0">
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-200 text-slate-700 border border-slate-300 shadow-2xs">
+            <Check size={12} className="text-slate-600 stroke-[2.5]" />
+            <span>✓ Reviewed</span>
+          </span>
+          <span className="text-[10px] font-semibold text-rose-600 bg-rose-50 border border-rose-200/80 px-2 py-0.5 rounded-md">
+            Does Not Meet Requirements
+          </span>
+        </div>
       );
     }
     return (
@@ -249,6 +299,7 @@ export default function AdminApplications({
             >
               <option value="all">All Statuses</option>
               <option value="pending">Pending Only</option>
+              <option value="reviewed">Reviewed – Not Eligible</option>
               <option value="approved">Approved Only</option>
             </select>
           </div>
@@ -309,11 +360,15 @@ export default function AdminApplications({
         <div className="flex items-center gap-2 text-xs">
           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-semibold border border-emerald-100 text-[11px]">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-            Approved ({applications.filter((a) => a.isDone).length})
+            Approved ({applications.filter((a) => a.isDone || a.status === 'approved').length})
+          </span>
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 font-semibold border border-slate-200 text-[11px]">
+            <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+            Reviewed ({applications.filter((a) => !a.isDone && (a.reviewStatus === 'reviewed' || a.status === 'reviewed')).length})
           </span>
           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 font-semibold border border-amber-100 text-[11px]">
             <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-            Pending ({applications.filter((a) => !a.isDone).length})
+            Pending ({applications.filter((a) => !a.isDone && a.reviewStatus !== 'reviewed' && a.status !== 'reviewed').length})
           </span>
         </div>
       </div>
@@ -348,6 +403,7 @@ export default function AdminApplications({
               .slice(0, 2)
               .toUpperCase();
             const isApproved = Boolean(app.isDone || app.status === 'approved');
+            const isReviewed = Boolean(!app.isDone && (app.reviewStatus === 'reviewed' || app.status === 'reviewed'));
             const isRejected = app.status === 'rejected';
             const courseTitle = app.course || app.courseApplied || app.program || 'General Program';
             const phone = app.mobile || app.phone || app.contact || '-';
@@ -359,7 +415,7 @@ export default function AdminApplications({
                 animate={{ opacity: 1, y: 0 }}
                 key={app.id}
                 className={`rounded-2xl border p-4 sm:p-5 lg:p-6 flex flex-col justify-between min-w-0 transition-all duration-[250ms] ease-out motion-reduce:transition-none ${
-                  isApproved
+                  isApproved || isReviewed
                     ? 'bg-[#E5E7EB] border-[#CBD5E1] shadow-none hover:border-slate-400/60'
                     : isRejected
                     ? 'bg-rose-50/50 border-rose-200 shadow-xs'
@@ -372,7 +428,7 @@ export default function AdminApplications({
                     <div className="flex items-center gap-3 min-w-0">
                       <div
                         className={`w-11 h-11 rounded-xl font-bold flex items-center justify-center text-sm shrink-0 shadow-xs transition-colors duration-[250ms] ${
-                          isApproved
+                          isApproved || isReviewed
                             ? 'bg-slate-300/80 text-slate-700 border border-slate-400/40'
                             : isRejected
                             ? 'bg-rose-100 text-rose-800 border border-rose-200'
@@ -385,7 +441,7 @@ export default function AdminApplications({
                         {/* Student full name - NO strikethrough styling! */}
                         <h4
                           className={`font-bold text-sm sm:text-base truncate leading-snug transition-colors duration-[250ms] ${
-                            isApproved
+                            isApproved || isReviewed
                               ? 'text-slate-700'
                               : isRejected
                               ? 'text-rose-950'
@@ -396,7 +452,7 @@ export default function AdminApplications({
                         </h4>
                         <p
                           className={`text-[11px] font-mono truncate transition-colors duration-[250ms] ${
-                            isApproved ? 'text-[#64748B]' : 'text-slate-400'
+                            isApproved || isReviewed ? 'text-[#64748B]' : 'text-slate-400'
                           }`}
                         >
                           ID: {String(app.id).slice(-8)}
@@ -406,7 +462,7 @@ export default function AdminApplications({
 
                     {/* Status Badge */}
                     <div className="shrink-0">
-                      {renderStatusBadge(isApproved, isRejected)}
+                      {renderStatusBadge(isApproved, isReviewed, isRejected)}
                     </div>
                   </div>
 
@@ -414,7 +470,7 @@ export default function AdminApplications({
                   <div className="mb-3.5 flex flex-wrap items-center gap-1.5">
                     <span
                       className={`px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider truncate max-w-full transition-colors duration-[250ms] ${
-                        isApproved
+                        isApproved || isReviewed
                           ? 'bg-slate-200/90 text-slate-700 border border-slate-300'
                           : isRejected
                           ? 'bg-rose-100 text-rose-700 border border-rose-200'
@@ -426,7 +482,7 @@ export default function AdminApplications({
                     {app.academy && (
                       <span
                         className={`px-2 py-0.5 rounded-md text-[10px] font-medium truncate transition-colors duration-[250ms] ${
-                          isApproved
+                          isApproved || isReviewed
                             ? 'bg-slate-200/70 text-slate-600'
                             : 'bg-slate-100 text-slate-600'
                         }`}
@@ -439,7 +495,7 @@ export default function AdminApplications({
                   {/* Contact & Date Details */}
                   <div
                     className={`space-y-1.5 py-2.5 border-t text-xs transition-colors duration-[250ms] ${
-                      isApproved
+                      isApproved || isReviewed
                         ? 'border-slate-300/70 text-slate-600'
                         : 'border-slate-100 text-slate-600'
                     }`}
@@ -448,12 +504,12 @@ export default function AdminApplications({
                       <Phone
                         size={13}
                         className={`shrink-0 transition-colors duration-[250ms] ${
-                          isApproved ? 'text-[#64748B]' : 'text-slate-400'
+                          isApproved || isReviewed ? 'text-[#64748B]' : 'text-slate-400'
                         }`}
                       />
                       <span
                         className={`font-medium font-mono text-[11px] ${
-                          isApproved ? 'text-slate-700' : 'text-slate-800'
+                          isApproved || isReviewed ? 'text-slate-700' : 'text-slate-800'
                         }`}
                       >
                         {phone}
@@ -464,12 +520,12 @@ export default function AdminApplications({
                         <Mail
                           size={13}
                           className={`shrink-0 transition-colors duration-[250ms] ${
-                            isApproved ? 'text-[#64748B]' : 'text-slate-400'
+                            isApproved || isReviewed ? 'text-[#64748B]' : 'text-slate-400'
                           }`}
                         />
                         <span
                           className={`truncate text-[11px] ${
-                            isApproved ? 'text-[#64748B]' : 'text-slate-600'
+                            isApproved || isReviewed ? 'text-[#64748B]' : 'text-slate-600'
                           }`}
                         >
                           {app.email}
@@ -478,7 +534,7 @@ export default function AdminApplications({
                     )}
                     <div
                       className={`flex items-center gap-2 text-[11px] transition-colors duration-[250ms] ${
-                        isApproved ? 'text-[#64748B]' : 'text-slate-400'
+                        isApproved || isReviewed ? 'text-[#64748B]' : 'text-slate-400'
                       }`}
                     >
                       <Calendar size={13} className="shrink-0" />
@@ -490,7 +546,7 @@ export default function AdminApplications({
                 {/* Card Actions Footer */}
                 <div
                   className={`pt-3.5 border-t flex items-center justify-between gap-2 mt-2 transition-colors duration-[250ms] ${
-                    isApproved ? 'border-slate-300/70' : 'border-slate-100'
+                    isApproved || isReviewed ? 'border-slate-300/70' : 'border-slate-100'
                   }`}
                 >
                   {/* View Details Button */}
@@ -498,7 +554,7 @@ export default function AdminApplications({
                     type="button"
                     onClick={() => setSelectedApplicationId(app.id)}
                     className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 shadow-2xs ${
-                      isApproved
+                      isApproved || isReviewed
                         ? 'bg-white/80 hover:bg-white text-slate-700 hover:text-slate-900 border border-slate-300'
                         : 'bg-slate-50 hover:bg-blue-50 text-slate-700 hover:text-blue-700 border border-slate-200/70'
                     }`}
@@ -508,18 +564,9 @@ export default function AdminApplications({
                   </button>
 
                   <div className="flex items-center gap-1.5">
-                    {/* Quick Approve or Status Toggle */}
-                    {!isApproved ? (
-                      <button
-                        type="button"
-                        onClick={() => setConfirmApproveApp(app)}
-                        className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition flex items-center gap-1 shadow-xs hover:shadow"
-                        title="Approve & Send Congratulations Email"
-                      >
-                        <Award size={14} />
-                        <span>Approve</span>
-                      </button>
-                    ) : (
+                    {/* Status & Review Action Buttons */}
+                    {isApproved ? (
+                      /* Approved State: Done status toggle */
                       <button
                         type="button"
                         onClick={() => onToggleApplicationDone(app.id)}
@@ -529,6 +576,50 @@ export default function AdminApplications({
                         <CheckCircle size={13} className="text-emerald-600" />
                         <span>Done</span>
                       </button>
+                    ) : isReviewed ? (
+                      /* Reviewed State: Reopen button or Approve button */
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => onReopenApplication && onReopenApplication(app.id)}
+                          className="px-2.5 py-1.5 rounded-xl bg-white/70 hover:bg-white text-slate-600 hover:text-slate-900 border border-slate-300 font-medium text-xs transition flex items-center gap-1 shadow-2xs"
+                          title="Reopen application for pending review"
+                        >
+                          <RotateCcw size={12} className="text-slate-500" />
+                          <span>Reopen</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmApproveApp(app)}
+                          className="px-2.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition flex items-center gap-1 shadow-xs hover:shadow"
+                          title="Approve & Send Congratulations Email (if new info provided)"
+                        >
+                          <Award size={13} />
+                          <span>Approve</span>
+                        </button>
+                      </>
+                    ) : (
+                      /* Pending State: Mark Checked button & Approve & Send Email button */
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmReviewApp(app)}
+                          className="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 font-semibold text-xs transition flex items-center gap-1 shadow-2xs"
+                          title="Mark this application as reviewed without approving (No email sent)"
+                        >
+                          <CheckCircle size={13} className="text-slate-600" />
+                          <span>Mark Checked</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmApproveApp(app)}
+                          className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition flex items-center gap-1 shadow-xs hover:shadow"
+                          title="Approve & Send Congratulations Email"
+                        >
+                          <Award size={14} />
+                          <span>Approve</span>
+                        </button>
+                      </>
                     )}
 
                     {/* Download PDF */}
@@ -537,7 +628,7 @@ export default function AdminApplications({
                         type="button"
                         onClick={() => onDownloadApplicationPdf(app)}
                         className={`p-1.5 rounded-xl transition border ${
-                          isApproved
+                          isApproved || isReviewed
                             ? 'bg-white/70 hover:bg-white text-slate-600 hover:text-slate-900 border-slate-300'
                             : 'bg-slate-50 hover:bg-slate-100 text-slate-500 hover:text-slate-800 border-slate-200/60'
                         }`}
@@ -552,7 +643,7 @@ export default function AdminApplications({
                       type="button"
                       onClick={() => setConfirmDeleteId(app.id)}
                       className={`p-1.5 rounded-xl transition ${
-                        isApproved
+                        isApproved || isReviewed
                           ? 'hover:bg-rose-100 text-slate-400 hover:text-rose-600'
                           : 'hover:bg-rose-50 text-slate-400 hover:text-rose-600'
                       }`}
@@ -638,9 +729,17 @@ export default function AdminApplications({
                       Ref ID: {selectedApp.id}
                     </span>
                     <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                      selectedApp.isDone ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                      selectedApp.isDone
+                        ? 'bg-emerald-100 text-emerald-800'
+                        : selectedApp.reviewStatus === 'reviewed' || selectedApp.status === 'reviewed'
+                        ? 'bg-slate-200 text-slate-800 border border-slate-300'
+                        : 'bg-amber-100 text-amber-800'
                     }`}>
-                      {selectedApp.isDone ? 'Approved & Enrolled' : 'Pending Review'}
+                      {selectedApp.isDone
+                        ? 'Approved & Enrolled'
+                        : selectedApp.reviewStatus === 'reviewed' || selectedApp.status === 'reviewed'
+                        ? 'Reviewed — Does Not Meet Requirements'
+                        : 'Pending Review'}
                     </span>
                   </div>
                 </div>
@@ -657,6 +756,35 @@ export default function AdminApplications({
 
             {/* Modal Body */}
             <div className="p-6 overflow-y-auto space-y-6 text-xs text-slate-700">
+              {/* Internal Review Remarks Banner */}
+              {(selectedApp.reviewStatus === 'reviewed' || selectedApp.status === 'reviewed') && (
+                <div className="p-4 rounded-2xl bg-slate-100 border border-slate-300 space-y-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-200 text-slate-800 border border-slate-300 w-fit">
+                      <CheckCircle size={12} className="text-slate-600" />
+                      Reviewed — Does Not Meet Requirements
+                    </span>
+                    {selectedApp.reviewedAt && (
+                      <span className="text-[11px] text-slate-500">
+                        Checked on {new Date(selectedApp.reviewedAt).toLocaleDateString()} by {selectedApp.reviewedBy || 'Admin'}
+                      </span>
+                    )}
+                  </div>
+                  {selectedApp.reviewReason && (
+                    <div className="text-xs">
+                      <span className="font-bold text-slate-700">Review Reason: </span>
+                      <span className="text-slate-900 font-medium">{selectedApp.reviewReason}</span>
+                    </div>
+                  )}
+                  {selectedApp.reviewRemarks && (
+                    <div className="text-xs bg-white/80 p-3 rounded-xl border border-slate-200 text-slate-700">
+                      <span className="font-bold text-slate-700 block mb-0.5">Internal Remarks (Confidential):</span>
+                      <p className="italic text-slate-800">{selectedApp.reviewRemarks}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Program Overview Banner */}
               <div className="p-4 rounded-2xl bg-gradient-to-r from-blue-900 to-indigo-900 text-white flex items-center justify-between">
                 <div>
@@ -827,18 +955,7 @@ export default function AdminApplications({
               </div>
 
               <div className="flex items-center gap-2">
-                {!selectedApp.isDone ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setConfirmApproveApp(selectedApp);
-                    }}
-                    className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition flex items-center gap-1.5 shadow-md shadow-emerald-600/30"
-                  >
-                    <CheckCircle size={15} />
-                    <span>Approve & Send Congratulations Email</span>
-                  </button>
-                ) : (
+                {selectedApp.isDone ? (
                   <button
                     type="button"
                     onClick={() => onToggleApplicationDone(selectedApp.id)}
@@ -846,6 +963,51 @@ export default function AdminApplications({
                   >
                     Revert to Pending
                   </button>
+                ) : selectedApp.reviewStatus === 'reviewed' || selectedApp.status === 'reviewed' ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (onReopenApplication) {
+                          await onReopenApplication(selectedApp.id);
+                        }
+                      }}
+                      className="px-3.5 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs transition flex items-center gap-1.5 shadow-2xs"
+                    >
+                      <RotateCcw size={13} className="text-slate-500" />
+                      <span>Reopen for Review</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmApproveApp(selectedApp)}
+                      className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition flex items-center gap-1.5 shadow-md shadow-emerald-600/30"
+                    >
+                      <Award size={15} />
+                      <span>Approve & Send Email</span>
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmReviewApp(selectedApp)}
+                      className="px-3.5 py-2 rounded-xl border border-slate-300 bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold text-xs transition flex items-center gap-1.5 shadow-2xs"
+                      title="Mark as Checked without approving (No email will be sent)"
+                    >
+                      <CheckCircle size={14} className="text-slate-600" />
+                      <span>Mark Checked</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setConfirmApproveApp(selectedApp);
+                      }}
+                      className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition flex items-center gap-1.5 shadow-md shadow-emerald-600/30"
+                    >
+                      <Award size={15} />
+                      <span>Approve & Send Email</span>
+                    </button>
+                  </>
                 )}
 
                 <button
@@ -856,6 +1018,89 @@ export default function AdminApplications({
                   Close
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal for Marking as Checked / Reviewed */}
+      {confirmReviewApp && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 p-6 max-w-md w-full space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-700 flex items-center justify-center">
+              <CheckCircle size={24} className="text-slate-600" />
+            </div>
+
+            <div>
+              <h3 className="text-base font-bold text-slate-900">
+                Mark Application as Checked
+              </h3>
+              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                Mark this application as reviewed without approving the student?{' '}
+                <span className="font-semibold text-slate-700">
+                  No approval email will be sent
+                </span>, and no enrollment record will be created.
+              </p>
+            </div>
+
+            <div className="space-y-3 pt-1">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  Reason (Why applicant does not meet criteria)
+                </label>
+                <select
+                  value={reviewReason}
+                  onChange={(e) => setReviewReason(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl text-xs bg-slate-50 border border-slate-200 text-slate-800 focus:bg-white focus:border-blue-500 outline-none"
+                >
+                  <option value="Minimum qualifications not met">Minimum qualifications not met</option>
+                  <option value="Age requirement not met">Age requirement not met</option>
+                  <option value="Required documents missing">Required documents missing</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  Internal Remarks (Optional - Not visible to student)
+                </label>
+                <textarea
+                  value={reviewRemarks}
+                  onChange={(e) => setReviewRemarks(e.target.value)}
+                  placeholder="e.g., Student does not meet the minimum educational qualification required for this course."
+                  rows={2}
+                  className="w-full px-3 py-2 rounded-xl text-xs bg-slate-50 border border-slate-200 text-slate-800 focus:bg-white focus:border-blue-500 outline-none resize-none placeholder:text-slate-400"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                disabled={reviewing}
+                onClick={() => {
+                  setConfirmReviewApp(null);
+                  setReviewRemarks('');
+                }}
+                className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={reviewing}
+                onClick={handleConfirmReview}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-md shadow-slate-900/20"
+              >
+                {reviewing ? (
+                  <span>Saving Review...</span>
+                ) : (
+                  <>
+                    <CheckCircle size={14} />
+                    <span>Confirm Review</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>

@@ -171,7 +171,7 @@ export default function Dashboard() {
 
   // Sidebar dynamic stats
   const sidebarStats = useMemo(() => ({
-    pendingApplications: applications.filter((a) => !a.isDone).length,
+    pendingApplications: applications.filter((a) => !a.isDone && a.reviewStatus !== 'reviewed').length,
     unreadMessages: messages.filter((m) => !m.isDone).length,
     coursesCount: courses.length,
     practicalsCount: trainingPrograms.length,
@@ -199,7 +199,11 @@ export default function Dashboard() {
       );
 
       setApplications((prev) =>
-        prev.map((a) => (String(a.id) === String(appId) ? { ...a, isDone: true, status: 'approved' } : a))
+        prev.map((a) =>
+          String(a.id) === String(appId)
+            ? { ...a, isDone: true, status: 'approved', reviewStatus: 'approved' }
+            : a
+        )
       );
 
       const msg = res?.data?.message || 'Application approved and enrolment email dispatched.';
@@ -208,6 +212,61 @@ export default function Dashboard() {
     } catch (err) {
       console.error('Approve failed:', err);
       showToast(err?.response?.data?.message || 'Failed to approve application', 'error');
+      throw err;
+    }
+  };
+
+  // Dedicated Review Action (Reviewed - Not Eligible, NO EMAIL)
+  const handleReviewApplication = async (appId, reviewData = {}) => {
+    try {
+      const res = await apiClient.patch(`/api/admin/applications/${appId}/review`, reviewData);
+      const updated = res.data;
+      setApplications((prev) =>
+        prev.map((a) =>
+          String(a.id) === String(appId)
+            ? {
+                ...a,
+                isDone: false,
+                status: 'reviewed',
+                reviewStatus: 'reviewed',
+                reviewReason: updated.reviewReason || reviewData.reviewReason || a.reviewReason,
+                reviewRemarks: updated.reviewRemarks || reviewData.reviewRemarks || a.reviewRemarks,
+                reviewedAt: updated.reviewedAt || new Date().toISOString(),
+                reviewedBy: updated.reviewedBy || 'Admin',
+              }
+            : a
+        )
+      );
+      showToast('Application marked as reviewed. No approval email was sent.', 'success');
+      return updated;
+    } catch (err) {
+      console.error('Failed to review application:', err);
+      showToast(err?.response?.data?.message || 'Failed to mark application as reviewed', 'error');
+      throw err;
+    }
+  };
+
+  // Reopen decision back to pending review
+  const handleReopenApplication = async (appId) => {
+    try {
+      const res = await apiClient.patch(`/api/admin/applications/${appId}/review`, { reopen: true });
+      const updated = res.data;
+      setApplications((prev) =>
+        prev.map((a) =>
+          String(a.id) === String(appId)
+            ? {
+                ...a,
+                isDone: false,
+                status: 'pending',
+                reviewStatus: 'pending',
+              }
+            : a
+        )
+      );
+      showToast('Application reopened for pending review', 'success');
+      return updated;
+    } catch (err) {
+      showToast(err?.response?.data?.message || 'Failed to reopen application', 'error');
       throw err;
     }
   };
@@ -764,6 +823,8 @@ export default function Dashboard() {
                     selectedApplicationId={selectedApplicationId}
                     setSelectedApplicationId={setSelectedApplicationId}
                     onApproveApplication={handleApproveApplication}
+                    onReviewApplication={handleReviewApplication}
+                    onReopenApplication={handleReopenApplication}
                     onToggleApplicationDone={handleToggleApplicationDone}
                     onDeleteApplication={handleDeleteApplication}
                     onDownloadApplicationPdf={(app) => downloadApplicationPdf(app, { download: true })}
