@@ -6,6 +6,7 @@ import { Bell, X, ArrowRight, CalendarDays } from 'lucide-react';
 import SEO from '../components/SEO.jsx';
 import HeroSection from '../components/HeroSection';
 import WelcomeToIAAC from '../components/WelcomeToIAAC.jsx';
+import NoticePopup from '../components/NoticePopup.jsx';
 import apiClient from '../services/apiClient.js';
 
 /* ---------------- ANIMATION VARIANTS ---------------- */
@@ -62,6 +63,9 @@ function Home() {
         path="/"
         keywords="aviation college Sri Lanka, airline training, IATA courses, cabin crew training, airport management"
       />
+      {/* HOMEPAGE POPUP ANNOUNCEMENT */}
+      <NoticePopup />
+
       {/* 1. HERO SECTION */}
       <HeroSection />
 

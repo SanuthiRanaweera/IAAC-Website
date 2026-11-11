@@ -1,5 +1,5 @@
 import { useContext } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ThemeContext } from './context/ThemeContext.jsx';
 import { useAuth } from './hooks/useAuth.js';
 
@@ -31,17 +31,21 @@ import StudentLogin from './pages/StudentLogin.jsx';
 function App() {
   const { theme } = useContext(ThemeContext);
   const { user } = useAuth();
+  const location = useLocation();
   const isAdmin = user?.role === 'admin';
+  const isAdminRoute = location.pathname.startsWith('/admin');
 
-  // Dynamic Theme Classes
-  const appClasses = theme === 'dark'
-    ? 'min-h-screen flex flex-col bg-slate-950 text-slate-100'
-    : 'min-h-screen flex flex-col bg-slate-50 text-slate-900';
+  // Dynamic Theme Classes (Admin routes maintain clean SaaS neutral theme)
+  const appClasses = isAdminRoute
+    ? 'min-h-screen flex flex-col bg-slate-50 text-slate-900 antialiased font-sans'
+    : (theme === 'dark'
+      ? 'min-h-screen flex flex-col bg-slate-950 text-slate-100'
+      : 'min-h-screen flex flex-col bg-slate-50 text-slate-900');
 
   return (
     <div className={appClasses}>
       <ErrorBoundary>
-        <Navbar />
+        {!isAdminRoute && <Navbar />}
         
         {/* Handles scrolling to top when route changes */}
         <ScrollManager />
@@ -76,18 +80,18 @@ function App() {
             <Route path="/events/upcoming" element={<UpcomingEvents />} />
             
             {/* --- ADMIN ROUTES --- */}
+            <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
             <Route path="/admin/login" element={<AdminLogin />} />
             <Route
               path="/admin/dashboard"
-              // Protects the dashboard so only admins can enter
-              element={isAdmin ? <Dashboard /> : <Navigate to="/" replace />}
+              element={isAdmin ? <Dashboard /> : <Navigate to="/admin/login" replace />}
             />
           </Routes>
         </main>
 
-        <ChatbotWidget />
+        {!isAdminRoute && <ChatbotWidget />}
 
-        <Footer />
+        {!isAdminRoute && <Footer />}
       </ErrorBoundary>
     </div>
   );

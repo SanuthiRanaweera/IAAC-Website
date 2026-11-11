@@ -43,4 +43,33 @@
            transition-transform duration-200 
            hover:-translate-y-1 hover:shadow-2xl hover:shadow-slate-200/60;
   }
+
+  /* Thin & elegant custom scrollbar for admin navigation */
+  .custom-scrollbar,
+  .sidebar-navigation {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar,
+  .sidebar-navigation::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track,
+  .sidebar-navigation::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb,
+  .sidebar-navigation::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover,
+  .sidebar-navigation::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.35);
+  }
 }

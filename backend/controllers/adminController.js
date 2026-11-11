@@ -276,13 +276,51 @@ exports.deleteMessage = async (req, res) => {
   }
 };
 
-exports.stats = (req, res) => {
-  return res.status(200).json({
-    applicationsToday: 12,
-    totalStudents: 1240,
-    upcomingEvents: 3,
-    period: 'Dec 25, 2025',
-  });
+exports.stats = async (req, res) => {
+  try {
+    const Application = require('../models/Application');
+    const Message = require('../models/Message');
+    const Event = require('../models/Event');
+    const Course = require('../models/Course');
+    const Notice = require('../models/Notice');
+
+    const totalApplications = await Application.countDocuments();
+    const approvedApplications = await Application.countDocuments({ isDone: true });
+    const pendingApplications = await Application.countDocuments({ isDone: false });
+
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    const newApplicationsToday = await Application.countDocuments({ createdAt: { $gte: startOfToday } });
+
+    const unreadMessages = await Message.countDocuments({ isDone: false });
+    const totalCourses = await Course.countDocuments();
+    const upcomingEvents = await Event.countDocuments({
+      $or: [
+        { eventDate: { $gte: startOfToday } },
+        { eventDate: { $exists: false } },
+        { eventDate: null },
+      ],
+    });
+    const totalNotices = await Notice.countDocuments();
+    const activePopupNotices = await Notice.countDocuments({
+      $or: [{ showAsPopup: true }, { isPopup: true }],
+    });
+
+    return res.status(200).json({
+      totalApplications,
+      approvedApplications,
+      pendingApplications,
+      newApplicationsToday,
+      unreadMessages,
+      totalCourses,
+      upcomingEvents,
+      totalNotices,
+      activePopupNotices,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err) {
+    return res.status(500).json({ message: 'Failed to fetch dashboard stats' });
+  }
 };
 
 exports.config = (req, res) => {
