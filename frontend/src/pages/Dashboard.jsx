@@ -17,6 +17,8 @@ import AdminNotices from '../components/admin/tabs/AdminNotices.jsx';
 import AdminAnalytics from '../components/admin/tabs/AdminAnalytics.jsx';
 import AdminReports from '../components/admin/tabs/AdminReports.jsx';
 import AdminSettings from '../components/admin/tabs/AdminSettings.jsx';
+import AdminPastStudents from '../components/admin/tabs/AdminPastStudents.jsx';
+import { downloadPastStudentPdf, printPastStudentApp } from '../utils/pastStudentPdf.js';
 
 export default function Dashboard() {
   const { user, setUser } = useAuth();
@@ -47,6 +49,7 @@ export default function Dashboard() {
   const [trainingPrograms, setTrainingPrograms] = useState([]);
   const [events, setEvents] = useState([]);
   const [notices, setNotices] = useState([]);
+  const [pastStudentStats, setPastStudentStats] = useState(null);
 
   // Selected Application for Details view
   const [selectedApplicationId, setSelectedApplicationId] = useState(null);
@@ -69,13 +72,14 @@ export default function Dashboard() {
     else setLoading(true);
 
     try {
-      const [appsRes, msgsRes, coursesRes, trainRes, eventsRes, noticesRes] = await Promise.allSettled([
+      const [appsRes, msgsRes, coursesRes, trainRes, eventsRes, noticesRes, pastStatsRes] = await Promise.allSettled([
         apiClient.get('/api/admin/applications'),
         apiClient.get('/api/admin/messages'),
         apiClient.get('/api/courses'),
         apiClient.get('/api/training-programs'),
         apiClient.get('/api/events'),
         apiClient.get('/api/notices'),
+        apiClient.get('/api/admin/past-students/stats'),
       ]);
 
       if (appsRes.status === 'fulfilled') setApplications(appsRes.value?.data?.items || []);
@@ -84,6 +88,7 @@ export default function Dashboard() {
       if (trainRes.status === 'fulfilled') setTrainingPrograms(trainRes.value?.data?.items || trainRes.value?.data || []);
       if (eventsRes.status === 'fulfilled') setEvents(eventsRes.value?.data?.items || eventsRes.value?.data || []);
       if (noticesRes.status === 'fulfilled') setNotices(noticesRes.value?.data?.items || noticesRes.value?.data || []);
+      if (pastStatsRes.status === 'fulfilled') setPastStudentStats(pastStatsRes.value?.data || null);
 
       if (isRefresh) {
         showToast('Dashboard data refreshed successfully');
@@ -173,11 +178,12 @@ export default function Dashboard() {
   const sidebarStats = useMemo(() => ({
     pendingApplications: applications.filter((a) => !a.isDone && a.reviewStatus !== 'reviewed').length,
     unreadMessages: messages.filter((m) => !m.isDone).length,
+    pendingPastStudents: pastStudentStats?.pendingApplications || 0,
     coursesCount: courses.length,
     practicalsCount: trainingPrograms.length,
     eventsCount: events.length,
     activePopups: notices.filter((n) => n.showAsPopup || n.isPopup).length,
-  }), [applications, messages, courses, trainingPrograms, events, notices]);
+  }), [applications, messages, pastStudentStats, courses, trainingPrograms, events, notices]);
 
   // ==========================================
   // APPLICATION ACTIONS & EMAIL INTEGRATION
@@ -839,6 +845,16 @@ export default function Dashboard() {
                     messages={messages}
                     onMarkMessageDone={handleMarkMessageDone}
                     onDeleteMessage={handleDeleteMessage}
+                  />
+                )}
+
+                {/* 3b. Past Students Management */}
+                {activeTab === 'past-students' && (
+                  <AdminPastStudents
+                    courses={courses}
+                    onDownloadPdf={(app) => downloadPastStudentPdf(app, { download: true })}
+                    onPrintApp={printPastStudentApp}
+                    showToast={showToast}
                   />
                 )}
 

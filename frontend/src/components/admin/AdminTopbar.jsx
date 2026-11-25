@@ -14,6 +14,8 @@ export default function AdminTopbar({
         return { group: 'Admissions', title: 'Applications' };
       case 'messages':
         return { group: 'Admissions', title: 'Messages & Inquiries' };
+      case 'past-students':
+        return { group: 'Student Records', title: 'Past Students Management' };
       case 'courses':
         return { group: 'Website Management', title: 'Courses' };
       case 'practical':

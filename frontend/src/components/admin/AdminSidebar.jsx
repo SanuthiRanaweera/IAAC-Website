@@ -2,7 +2,7 @@ import React from 'react';
 import { 
   LayoutDashboard, FileText, MessageSquare, BookOpen, Compass, 
   Calendar, Bell, BarChart3, FileSpreadsheet, Settings, LogOut,
-  ChevronLeft, ChevronRight, X, ExternalLink
+  ChevronLeft, ChevronRight, X, ExternalLink, GraduationCap
 } from 'lucide-react';
 
 const NAV_SECTIONS = [
@@ -17,6 +17,7 @@ const NAV_SECTIONS = [
     items: [
       { id: 'applications', label: 'Applications', icon: FileText, badgeKey: 'pendingApplications' },
       { id: 'messages', label: 'Messages', icon: MessageSquare, badgeKey: 'unreadMessages' },
+      { id: 'past-students', label: 'Past Students', icon: GraduationCap, badgeKey: 'pendingPastStudents' },
     ],
   },
   {

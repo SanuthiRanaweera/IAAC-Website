@@ -11,9 +11,6 @@ const connectDB = require('./config/db');
 // Always load .env from the backend folder regardless of CWD
 dotenv.config({ path: path.resolve(__dirname, '.env') });
 
-// Fail fast if MongoDB is unavailable (avoid hanging requests)
-mongoose.set('bufferCommands', false);
-
 const app = express();
 
 // Informative warning if AI chat is not configured
@@ -71,11 +68,31 @@ if (shouldLogRequests) {
   app.use(morgan('dev'));
 }
 
+// Check database readiness for API routes (except health endpoint)
+app.use('/api', (req, res, next) => {
+  if (req.path === '/health') return next();
+
+  if (mongoose.connection.readyState !== 1) {
+    return res.status(503).json({
+      error: 'DatabaseUnavailable',
+      message: 'Database is currently unavailable. If using MongoDB Atlas, make sure your IP is whitelisted.',
+      dbState: mongoose.connection.readyState,
+    });
+  }
+  next();
+});
+
 // Mount API routes here
 const adminRoutes = require('./routes/admin');
 app.use('/api/admin', adminRoutes);
 
+const adminPastStudentRoutes = require('./routes/adminPastStudents');
+app.use('/api/admin/past-students', adminPastStudentRoutes);
+
 // Public routes
+const pastStudentRoutes = require('./routes/pastStudents');
+app.use('/api/past-students', pastStudentRoutes);
+
 const applicationRoutes = require('./routes/applications');
 app.use('/api/applications', applicationRoutes);
 

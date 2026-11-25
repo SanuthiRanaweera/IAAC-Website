@@ -27,6 +27,7 @@ import UpcomingEvents from './pages/Events.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import AdminLogin from './pages/AdminLogin.jsx';
 import StudentLogin from './pages/StudentLogin.jsx';
+import PastStudentApply from './pages/PastStudentApply.jsx';
 
 function App() {
   const { theme } = useContext(ThemeContext);
@@ -34,6 +35,7 @@ function App() {
   const location = useLocation();
   const isAdmin = user?.role === 'admin';
   const isAdminRoute = location.pathname.startsWith('/admin');
+  const isPastStudentRoute = location.pathname.startsWith('/past-students') || location.pathname.startsWith('/apply-past-student');
 
   // Dynamic Theme Classes (Admin routes maintain clean SaaS neutral theme)
   const appClasses = isAdminRoute
@@ -45,7 +47,7 @@ function App() {
   return (
     <div className={appClasses}>
       <ErrorBoundary>
-        {!isAdminRoute && <Navbar />}
+        {!isAdminRoute && !isPastStudentRoute && <Navbar />}
         
         {/* Handles scrolling to top when route changes */}
         <ScrollManager />
@@ -78,6 +80,11 @@ function App() {
             <Route path="/contact-us" element={<ContactUs />} />
             <Route path="/apply-now" element={<ApplyNow />} />
             <Route path="/events/upcoming" element={<UpcomingEvents />} />
+
+            {/* Past Students Public Application Collection */}
+            <Route path="/past-students/apply/:token" element={<PastStudentApply />} />
+            <Route path="/past-students/preview" element={<PastStudentApply />} />
+            <Route path="/apply-past-student/:token" element={<PastStudentApply />} />
             
             {/* --- ADMIN ROUTES --- */}
             <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
@@ -89,9 +96,9 @@ function App() {
           </Routes>
         </main>
 
-        {!isAdminRoute && <ChatbotWidget />}
+        {!isAdminRoute && !isPastStudentRoute && <ChatbotWidget />}
 
-        {!isAdminRoute && <Footer />}
+        {!isAdminRoute && !isPastStudentRoute && <Footer />}
       </ErrorBoundary>
     </div>
   );
